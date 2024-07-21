@@ -49,29 +49,14 @@ const config: HardhatUserConfig = {
       },
       allowUnlimitedContractSize: true,
     },
-    kovan: {
-      url: process.env.KOVAN_URI,
-      accounts: [process.env.KOVAN_PRIVATE_KEY || ''],
-      /*accounts: {
-        mnemonic: process.env.KOVAN_MNEMONIC,
-      },*/
-    },
     mainnet: {
       url: process.env.MAINNET_URI,
       accounts: [process.env.MAINNET_PRIVATE_KEY || ''],
       /*accounts: {
         mnemonic: process.env.MAINNET_MNEMONIC,
       },*/
-    },
-    fork: {
-      url: process.env.FORK_URI,
-      accounts: [process.env.MAINNET_PRIVATE_KEY || ''],
     }
-  },
-  etherscan: {
-    // Your API key for Etherscan
-    // Obtain one at https://etherscan.io/
-    apiKey: process.env.ETHERSCAN_API_KEY || ''
+   
   },
   typechain: {
     outDir: "typechain",

@@ -7,6 +7,7 @@ import "forge-std/console.sol";
 import {Utils} from "./utils/Utils.sol";
 
 import {PaladinToken} from "../../contracts/PaladinToken.sol";
+//import {IWeightedPool2Tokens} as {PaladinToken} from "../../contracts/interfaces/IWeightedPool2Tokens.sol"
 import {HolyPaladinToken} from "../../contracts/HolyPaladinToken.sol";
 
 contract StakingHPALTest is DSTest {
