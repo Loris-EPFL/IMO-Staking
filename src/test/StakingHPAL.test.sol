@@ -4,10 +4,12 @@ pragma solidity ^0.8.10;
 import "ds-test/test.sol";
 import "forge-std/Vm.sol";
 import "forge-std/console.sol";
+import "forge-std/console2.sol";
+
 import {Utils} from "./utils/Utils.sol";
 
 import {PaladinToken} from "../../contracts/PaladinToken.sol";
-//import {IWeightedPool2Tokens} as {PaladinToken} from "../../contracts/interfaces/IWeightedPool2Tokens.sol"
+import {IWeightedPool2Tokens} from "../../contracts/interfaces/IWeightedPool2Tokens.sol";
 import {HolyPaladinToken} from "../../contracts/HolyPaladinToken.sol";
 
 contract StakingHPALTest is DSTest {
@@ -16,8 +18,9 @@ contract StakingHPALTest is DSTest {
     Utils internal utils;
 
     address payable[] internal users;
+    //PaladinToken internal pal;
 
-    PaladinToken internal pal;
+    IWeightedPool2Tokens internal pal;
     HolyPaladinToken internal hpal;
 
     function setUp() public {
@@ -25,8 +28,10 @@ contract StakingHPALTest is DSTest {
         users = utils.createUsers(2);
 
         uint256 palSupply = 50000000 * 1e18;
-        pal = new PaladinToken(palSupply, address(this), address(this));
-        pal.setTransfersAllowed(true);
+        //pal = new PaladinToken(palSupply, address(this), address(this));
+
+        pal = IWeightedPool2Tokens(0xc29562b045D80fD77c69Bec09541F5c16fe20d9d);
+        //pal.setTransfersAllowed(true);
 
         //hPAL constructor parameters
         uint256 startDropPerSecond = 0.0005 * 1e18;
@@ -35,6 +40,8 @@ contract StakingHPALTest is DSTest {
         uint256 baseLockBonusRatio = 1 * 1e18;
         uint256 minLockBonusRatio = 2 * 1e18;
         uint256 maxLockBonusRatio = 6 * 1e18;
+        address testADR = address(this);
+        
 
         hpal = new HolyPaladinToken(
             address(pal),
@@ -48,13 +55,22 @@ contract StakingHPALTest is DSTest {
             minLockBonusRatio,
             maxLockBonusRatio
         );
+
+        vm.startPrank(0xfc78f8e1Af80A3bF5A1783BB59eD2d1b10f78cA9);
+        pal.balanceOf(0xfc78f8e1Af80A3bF5A1783BB59eD2d1b10f78cA9);
+        pal.transfer(testADR, 5 * 10e22);
+        vm.stopPrank();
+
+        //uint256 bal = pal.balanceOf(0xfc78f8e1Af80A3bF5A1783BB59eD2d1b10f78cA9);
     }
 
     // using uint72 since we gave only 1 000 PAL to the user
     function testStaking(uint72 amount) public {
         address payable staker = users[0];
 
-        uint256 transferAmount = 1000 * 1e18;
+        uint256 transferAmount = 100 * 1e18;
+
+        console.log(pal.balanceOf(0xfc78f8e1Af80A3bF5A1783BB59eD2d1b10f78cA9));
 
         pal.transfer(staker, transferAmount);
 
@@ -86,7 +102,7 @@ contract StakingHPALTest is DSTest {
         }
         else if(amount > previousBalance) {
             vm.expectRevert(
-                bytes("ERC20: transfer amount exceeds balance")
+                bytes("BAL#406")
             );
             vm.prank(staker);
             hpal.stake(amount);
@@ -125,9 +141,9 @@ contract StakingHPALTest is DSTest {
     function testUnstaking(uint72 amount) public {
         address payable staker = users[0];
 
-        uint256 transferAmount = 1000 * 1e18;
+        uint256 transferAmount = 100 * 1e18;
 
-        uint256 stakingAmount = 700 * 1e18;
+        uint256 stakingAmount = 70 * 1e18;
 
         pal.transfer(staker, transferAmount);
 
@@ -204,9 +220,9 @@ contract StakingHPALTest is DSTest {
     function testClaim(uint72 amount) public {
         address payable staker = users[0];
 
-        uint256 transferAmount = 1000 * 1e18;
+        uint256 transferAmount = 100 * 1e18;
 
-        uint256 stakingAmount = 700 * 1e18;
+        uint256 stakingAmount = 70 * 1e18;
 
         pal.transfer(staker, transferAmount);
 
@@ -280,9 +296,9 @@ contract StakingHPALTest is DSTest {
         address payable staker = users[0];
         address payable receiver = users[1];
 
-        uint256 transferAmount = 1000 * 1e18;
+        uint256 transferAmount = 100 * 1e18;
 
-        uint256 stakingAmount = 700 * 1e18;
+        uint256 stakingAmount = 70 * 1e18;
 
         pal.transfer(staker, transferAmount);
 

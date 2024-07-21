@@ -4,10 +4,15 @@ pragma solidity ^0.8.10;
 import "ds-test/test.sol";
 import "forge-std/Vm.sol";
 import "forge-std/console.sol";
+import "forge-std/console2.sol";
+
 import {Utils} from "./utils/Utils.sol";
 
 import {PaladinToken} from "../../contracts/PaladinToken.sol";
 import {HolyPaladinToken} from "../../contracts/HolyPaladinToken.sol";
+
+import {IWeightedPool2Tokens} from "../../contracts/interfaces/IWeightedPool2Tokens.sol";
+
 
 contract LockingHPALTest is DSTest {
     Vm internal immutable vm = Vm(HEVM_ADDRESS);
@@ -16,7 +21,8 @@ contract LockingHPALTest is DSTest {
 
     address payable[] internal users;
 
-    PaladinToken internal pal;
+    IWeightedPool2Tokens internal pal;
+    //PaladinToken internal pal;
     HolyPaladinToken internal hpal;
 
     function setUp() public {
@@ -24,8 +30,9 @@ contract LockingHPALTest is DSTest {
         users = utils.createUsers(2);
 
         uint256 palSupply = 50000000 * 1e18;
-        pal = new PaladinToken(palSupply, address(this), address(this));
-        pal.setTransfersAllowed(true);
+        pal = IWeightedPool2Tokens(0xc29562b045D80fD77c69Bec09541F5c16fe20d9d);
+        //pal = new PaladinToken(palSupply, address(this), address(this));
+        //pal.setTransfersAllowed(true);
 
         //hPAL constructor parameters
         uint256 startDropPerSecond = 0.0005 * 1e18;
@@ -47,15 +54,23 @@ contract LockingHPALTest is DSTest {
             minLockBonusRatio,
             maxLockBonusRatio
         );
+
+
+        address testADR = address(this);
+
+        vm.startPrank(0xfc78f8e1Af80A3bF5A1783BB59eD2d1b10f78cA9);
+        pal.balanceOf(0xfc78f8e1Af80A3bF5A1783BB59eD2d1b10f78cA9);
+        pal.transfer(testADR, 5 * 10e22);
+        vm.stopPrank();
     }
 
     // using uint72 since we gave only 1 000 PAL to the user
     function testLockingAmount(uint72 amount) public {
         address payable locker = users[0];
 
-        uint256 transferAmount = 1000 * 1e18;
+        uint256 transferAmount = 10 * 1e18;
 
-        uint256 stakingAmount = 700 * 1e18;
+        uint256 stakingAmount = 7 * 1e18;
 
         pal.transfer(locker, transferAmount);
 
@@ -121,11 +136,11 @@ contract LockingHPALTest is DSTest {
     function testReLockingAmount(uint72 amount) public {
         address payable locker = users[0];
 
-        uint256 transferAmount = 1000 * 1e18;
+        uint256 transferAmount = 10 * 1e18;
 
-        uint256 stakingAmount = 700 * 1e18;
+        uint256 stakingAmount = 7 * 1e18;
 
-        uint256 lockAmount = 300 * 1e18;
+        uint256 lockAmount = 3 * 1e18;
 
         pal.transfer(locker, transferAmount);
 
@@ -211,9 +226,9 @@ contract LockingHPALTest is DSTest {
     function testLockingDuration(uint256 duration) public {
         address payable locker = users[0];
 
-        uint256 transferAmount = 1000 * 1e18;
+        uint256 transferAmount = 10 * 1e18;
 
-        uint256 stakingAmount = 700 * 1e18;
+        uint256 stakingAmount = 7 * 1e18;
 
         pal.transfer(locker, transferAmount);
 
@@ -223,7 +238,7 @@ contract LockingHPALTest is DSTest {
         vm.prank(locker);
         hpal.stake(stakingAmount);
 
-        uint256 lockAmount = 300 * 1e18;
+        uint256 lockAmount = 3 * 1e18;
 
         HolyPaladinToken.TotalLock memory previousTotalLocked = hpal.getCurrentTotalLock();
 
@@ -278,9 +293,9 @@ contract LockingHPALTest is DSTest {
     function testReLockingDuration(uint256 duration) public {
         address payable locker = users[0];
 
-        uint256 transferAmount = 1000 * 1e18;
+        uint256 transferAmount = 10 * 1e18;
 
-        uint256 stakingAmount = 700 * 1e18;
+        uint256 stakingAmount = 7 * 1e18;
 
         pal.transfer(locker, transferAmount);
 
@@ -290,7 +305,7 @@ contract LockingHPALTest is DSTest {
         vm.prank(locker);
         hpal.stake(stakingAmount);
 
-        uint256 lockAmount = 300 * 1e18;
+        uint256 lockAmount = 3 * 1e18;
 
         uint256 lockDuration = 31536000;
 
@@ -369,11 +384,11 @@ contract LockingHPALTest is DSTest {
     function testIncreaseLockAmount(uint72 amount) public {
         address payable locker = users[0];
 
-        uint256 transferAmount = 1000 * 1e18;
+        uint256 transferAmount = 10 * 1e18;
 
-        uint256 stakingAmount = 700 * 1e18;
+        uint256 stakingAmount = 7 * 1e18;
 
-        uint256 lockAmount = 300 * 1e18;
+        uint256 lockAmount = 3 * 1e18;
 
         pal.transfer(locker, transferAmount);
 
@@ -459,11 +474,11 @@ contract LockingHPALTest is DSTest {
     function testIncreaseLockDuration(uint256 duration) public {
         address payable locker = users[0];
 
-        uint256 transferAmount = 1000 * 1e18;
+        uint256 transferAmount = 10 * 1e18;
 
-        uint256 stakingAmount = 700 * 1e18;
+        uint256 stakingAmount = 7 * 1e18;
 
-        uint256 lockAmount = 300 * 1e18;
+        uint256 lockAmount = 3 * 1e18;
 
         pal.transfer(locker, transferAmount);
 
@@ -549,9 +564,9 @@ contract LockingHPALTest is DSTest {
     function testLockAndUnlock(uint72 amount) public {
         address payable locker = users[0];
 
-        uint256 transferAmount = 1000 * 1e18;
+        uint256 transferAmount = 10 * 1e18;
 
-        uint256 stakingAmount = 700 * 1e18;
+        uint256 stakingAmount = 7 * 1e18;
 
         pal.transfer(locker, transferAmount);
 
@@ -592,9 +607,9 @@ contract LockingHPALTest is DSTest {
         address payable locker = users[0];
         address payable kicker = users[1];
 
-        uint256 transferAmount = 1000 * 1e18;
+        uint256 transferAmount = 10 * 1e18;
 
-        uint256 stakingAmount = 700 * 1e18;
+        uint256 stakingAmount = 7 * 1e18;
 
         pal.transfer(locker, transferAmount);
 
@@ -645,7 +660,7 @@ contract LockingHPALTest is DSTest {
     function testStakeAndLock(uint72 amount) public {
         address payable locker = users[0];
 
-        pal.transfer(locker, 1000 * 1e18);
+        pal.transfer(locker, 10 * 1e18);
 
         uint256 previousBalance = pal.balanceOf(locker);
         uint256 previousStakedBalance = hpal.balanceOf(locker);
@@ -685,7 +700,7 @@ contract LockingHPALTest is DSTest {
         }
         else if(amount > previousBalance) {
             vm.expectRevert(
-                bytes("ERC20: transfer amount exceeds balance")
+                bytes("BAL#406")
             );
             vm.prank(locker);
             hpal.stakeAndLock(amount, 31536000);
@@ -781,7 +796,7 @@ contract LockingHPALTest is DSTest {
         }
         else if(amount > previousBalance) {
             vm.expectRevert(
-                bytes("ERC20: transfer amount exceeds balance")
+                bytes("BAL#406")
             );
             vm.prank(locker);
             hpal.stakeAndIncreaseLock(amount, 31536000);
