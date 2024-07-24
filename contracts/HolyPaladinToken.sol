@@ -10,7 +10,7 @@ import "./utils/SmartWalletChecker.sol";
 
 /** @title Holy Paladin Token (hPAL) contract  */
 /// @author Paladin
-contract HolyPaladinToken is ERC20("IMO Staking Token", "IMO"), Owner {
+contract HolyPaladinToken is ERC20("IMO Staking Token", "stIMO"), Owner {
     using SafeERC20 for IERC20;
 
 
@@ -37,10 +37,13 @@ contract HolyPaladinToken is ERC20("IMO Staking Token", "IMO"), Owner {
     /** @notice Minimum duration of a Lock  */
     uint256 public constant MIN_LOCK_DURATION = 7884000; // 3 months
     /** @notice Maximum duration of a Lock  */
-    uint256 public constant MAX_LOCK_DURATION = 63072000; // 2 years
+    uint256 public constant MAX_LOCK_DURATION = 126227808; // 4 years
 
-    /** @notice Address of the PAL token  */
+    /** @notice Address of the Balancer bpt token  */
     IERC20 public immutable pal;
+
+    /** @notice Address of rewards token */
+    IERC20 public rewardToken;
     
 
     /** @notice Struct of the Lock of an user  */
@@ -205,6 +208,7 @@ contract HolyPaladinToken is ERC20("IMO Staking Token", "IMO"), Owner {
 
     constructor(
         address _palToken,
+        address _rewardsToken,
         address _admin,
         address _rewardsVault,
         address _smartWalletChecker,
@@ -220,6 +224,9 @@ contract HolyPaladinToken is ERC20("IMO Staking Token", "IMO"), Owner {
         require(_rewardsVault != address(0));
 
         pal = IERC20(_palToken);
+
+        // Set the rewards token
+        rewardToken = IERC20(_rewardsToken);
 
         _transferOwnership(_admin);
 
@@ -255,6 +262,17 @@ contract HolyPaladinToken is ERC20("IMO Staking Token", "IMO"), Owner {
         lastDropUpdate = block.timestamp;
         // Start the reward distribution & DropPerSecond decrease
         startDropTimestamp = block.timestamp;
+    }
+
+     /**
+     * @notice Modify the scaling factors for the rewards
+     * @param _durationExpFactor scaling factor for the duration 
+    * @param _rewardsLinearScalingFactor scaling factor for the rewards
+     */
+    function updateScalingFactors(uint8 _durationExpFactor, uint8 _rewardsLinearScalingFactor) external onlyOwner {
+        require(_durationExpFactor != 0 && _rewardsLinearScalingFactor != 0, "Invalid scaling factors");
+        durationExpFactor = _durationExpFactor;
+        rewardsLinearScalingFactor = _rewardsLinearScalingFactor;
     }
 
 
@@ -452,7 +470,7 @@ contract HolyPaladinToken is ERC20("IMO Staking Token", "IMO"), Owner {
         // and transfer the PAL from the rewardsVault to the user
         unchecked{ claimableRewards[msg.sender] -= claimAmount; }
 
-        pal.safeTransferFrom(rewardsVault, msg.sender, claimAmount);
+        rewardToken.safeTransferFrom(rewardsVault, msg.sender, claimAmount);
 
         emit ClaimRewards(msg.sender, claimAmount);
     }

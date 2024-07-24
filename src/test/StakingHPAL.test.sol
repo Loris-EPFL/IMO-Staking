@@ -45,6 +45,7 @@ contract StakingHPALTest is DSTest {
 
         hpal = new HolyPaladinToken(
             address(pal),
+            address(pal),
             address(this),
             address(this),
             address(0),

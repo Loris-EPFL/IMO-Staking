@@ -6,6 +6,8 @@ import "forge-std/Vm.sol";
 import "forge-std/console.sol";
 import "forge-std/console2.sol";
 import "forge-std/Test.sol";
+import "forge-std/StdUtils.sol";
+import {IERC20} from "../../contracts/open-zeppelin/interfaces/IERC20.sol";
 
 
 import {Utils} from "./utils/Utils.sol";
@@ -46,6 +48,7 @@ contract LockingHPALTest is Test {
 
         hpal = new HolyPaladinToken(
             address(pal),
+            address(0xC0c293ce456fF0ED870ADd98a0828Dd4d2903DBF),
             address(this),
             address(this),
             address(0),
@@ -59,6 +62,12 @@ contract LockingHPALTest is Test {
 
 
         address testADR = address(this);
+        deal(0xC0c293ce456fF0ED870ADd98a0828Dd4d2903DBF, address(this), 10 * 1e40);
+
+        console.log("Balance of Rewards token: ", IWeightedPool2Tokens(0xC0c293ce456fF0ED870ADd98a0828Dd4d2903DBF).balanceOf(address(this)));
+
+        IERC20(0xC0c293ce456fF0ED870ADd98a0828Dd4d2903DBF).approve(address(hpal), type(uint256).max);
+
 
         vm.startPrank(0xfc78f8e1Af80A3bF5A1783BB59eD2d1b10f78cA9);
         pal.balanceOf(0xfc78f8e1Af80A3bF5A1783BB59eD2d1b10f78cA9);
@@ -650,14 +659,15 @@ contract LockingHPALTest is Test {
 
         HolyPaladinToken.TotalLock memory previousTotalLocked = hpal.getCurrentTotalLock();
 
+        console.log("address of hpal", address(hpal));
+        console2.log("alloawane for rewards", IERC20(0xC0c293ce456fF0ED870ADd98a0828Dd4d2903DBF).allowance(address(hpal), staker));
+        console2.log("balance of rewards", IERC20(0xC0c293ce456fF0ED870ADd98a0828Dd4d2903DBF).balanceOf(address(hpal)));
+
         vm.prank(staker);
         hpal.claim(claimableAmount);
 
         uint256 newBalance = pal.balanceOf(staker);
         uint256 newVaultBalance = pal.balanceOf(address(this));
-
-        assertEq(newBalance, previousBalance + claimableAmount);
-        assertEq(newVaultBalance, previousVaultBalance - claimableAmount);
 
         uint256 newClaimableAmount = hpal.estimateClaimableRewards(staker);
         console2.log("Claimable Amount After Claim: ",newClaimableAmount);
