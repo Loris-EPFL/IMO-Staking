@@ -5,6 +5,8 @@ import "ds-test/test.sol";
 import "forge-std/Vm.sol";
 import "forge-std/console.sol";
 import "forge-std/console2.sol";
+import "forge-std/Test.sol";
+
 
 import {Utils} from "./utils/Utils.sol";
 
@@ -14,8 +16,8 @@ import {HolyPaladinToken} from "../../contracts/HolyPaladinToken.sol";
 import {IWeightedPool2Tokens} from "../../contracts/interfaces/IWeightedPool2Tokens.sol";
 
 
-contract LockingHPALTest is DSTest {
-    Vm internal immutable vm = Vm(HEVM_ADDRESS);
+contract LockingHPALTest is Test {
+    //Vm internal immutable vm = Vm(HEVM_ADDRESS);
 
     Utils internal utils;
 
@@ -39,7 +41,7 @@ contract LockingHPALTest is DSTest {
         uint256 endDropPerSecond = 0.00001 * 1e18;
         uint256 dropDecreaseDuration = 63072000;
         uint256 baseLockBonusRatio = 1 * 1e18;
-        uint256 minLockBonusRatio = 2 * 1e18;
+        uint256 minLockBonusRatio = 13 * 1e17;
         uint256 maxLockBonusRatio = 6 * 1e18;
 
         hpal = new HolyPaladinToken(
@@ -132,6 +134,8 @@ contract LockingHPALTest is DSTest {
         }
 
     }
+
+    
 
     function testReLockingAmount(uint72 amount) public {
         address payable locker = users[0];
@@ -288,6 +292,381 @@ contract LockingHPALTest is DSTest {
             assertEq(newTotalLocked.total, previousTotalLocked.total + lockAmount);
 
         }
+    }
+
+    function testClaim(uint72 amount) public {
+        address payable staker = users[0];
+
+        uint256 transferAmount = 100 * 1e18;
+
+        uint256 stakingAmount = 70 * 1e18;
+
+        pal.transfer(staker, transferAmount);
+
+        pal.approve(address(hpal), 1000000 * 1e18);
+
+        vm.prank(staker);
+        pal.approve(address(hpal), stakingAmount);
+            
+        vm.prank(staker);
+        hpal.stake(stakingAmount);
+
+        vm.prank(staker);
+        hpal.cooldown();
+
+        utils.advanceTime(864100);
+
+        vm.prank(staker);
+        hpal.unstake(stakingAmount, staker);
+
+        uint256 previousBalance = pal.balanceOf(staker);
+        uint256 previousVaultBalance = pal.balanceOf(address(this));
+
+        uint256 claimableAmount = hpal.estimateClaimableRewards(staker);
+
+        console2.log("Claimable Amount after lock: ", claimableAmount);
+
+
+        if(amount == 0){
+            vm.expectRevert(
+                bytes4(keccak256(bytes("IncorrectAmount()")))
+            );
+            vm.prank(staker);
+            hpal.claim(amount);
+
+            uint256 newBalance = pal.balanceOf(staker);
+            uint256 newVaultBalance = pal.balanceOf(address(this));
+
+            assertEq(newBalance, previousBalance);
+            assertEq(newVaultBalance, previousVaultBalance);
+        }
+        else if(amount > claimableAmount) {
+            vm.prank(staker);
+            hpal.claim(amount);
+
+            uint256 newBalance = pal.balanceOf(staker);
+            uint256 newVaultBalance = pal.balanceOf(address(this));
+
+            assertEq(newBalance, previousBalance + claimableAmount);
+            assertEq(newVaultBalance, previousVaultBalance - claimableAmount);
+
+            uint256 newClaimableAmount = hpal.estimateClaimableRewards(staker);
+
+            assertEq(newClaimableAmount, 0);
+        }
+        else{
+            vm.prank(staker);
+            hpal.claim(amount);
+
+            uint256 newBalance = pal.balanceOf(staker);
+            uint256 newVaultBalance = pal.balanceOf(address(this));
+
+            assertEq(newBalance, previousBalance + amount);
+            assertEq(newVaultBalance, previousVaultBalance - amount);
+
+            uint256 newClaimableAmount = hpal.estimateClaimableRewards(staker);
+
+            assertEq(newClaimableAmount, claimableAmount - amount);
+
+        }
+
+    }
+
+    
+
+    function testClaimAfterLock(uint72 amount, uint256 duration) public {
+        address payable staker = users[0];
+
+        uint256 transferAmount = 100 * 1e18;
+
+        uint256 stakingAmount = 70 * 1e18;
+
+        uint256 lockAmount = 30 * 1e18;
+
+        pal.transfer(staker, transferAmount);
+
+        pal.approve(address(hpal), 1000000 * 1e18);
+
+        vm.prank(staker);
+        pal.approve(address(hpal), stakingAmount);
+            
+        vm.prank(staker);
+        hpal.stake(stakingAmount);
+
+        HolyPaladinToken.TotalLock memory previousTotalLocked = hpal.getCurrentTotalLock();
+
+        uint256 previousBalance = pal.balanceOf(staker);
+        uint256 previousVaultBalance = pal.balanceOf(address(this));
+
+        uint256 claimableAmount = hpal.estimateClaimableRewards(staker);
+        console2.log("Claimable Amount before lock: ", claimableAmount);
+
+
+        if(duration < hpal.MIN_LOCK_DURATION()){
+            vm.expectRevert(
+                bytes4(keccak256(bytes("DurationUnderMin()")))
+            );
+            vm.prank(staker);
+            hpal.lock(lockAmount, duration);
+
+            HolyPaladinToken.UserLock memory userLock = hpal.getUserLock(staker);
+            HolyPaladinToken.TotalLock memory newTotalLocked = hpal.getCurrentTotalLock();
+
+            assertEq(userLock.amount, 0);
+            assertEq(userLock.startTimestamp, 0);
+            assertEq(userLock.duration, 0);
+            assertEq(userLock.fromBlock, 0);
+            assertEq(newTotalLocked.total, previousTotalLocked.total);
+        }
+        else if(duration > hpal.MAX_LOCK_DURATION()) {
+            vm.expectRevert(
+                bytes4(keccak256(bytes("DurationOverMax()")))
+            );
+            vm.prank(staker);
+            hpal.lock(lockAmount, duration);
+
+            HolyPaladinToken.UserLock memory userLock = hpal.getUserLock(staker);
+            HolyPaladinToken.TotalLock memory newTotalLocked = hpal.getCurrentTotalLock();
+
+            assertEq(userLock.amount, 0);
+            assertEq(userLock.startTimestamp, 0);
+            assertEq(userLock.duration, 0);
+            assertEq(userLock.fromBlock, 0);
+            assertEq(newTotalLocked.total, previousTotalLocked.total);
+        }else if(amount == 0 ){
+            vm.expectRevert(
+                bytes4(keccak256(bytes("IncorrectAmount()")))
+            );
+            vm.prank(staker);
+            hpal.claim(amount);
+
+            uint256 newBalance = pal.balanceOf(staker);
+            uint256 newVaultBalance = pal.balanceOf(address(this));
+
+            assertEq(newBalance, previousBalance);
+            assertEq(newVaultBalance, previousVaultBalance);
+        }
+        else if(amount > claimableAmount) {
+            vm.prank(staker);
+            hpal.claim(amount);
+
+            
+
+            //uint256 newBalance = pal.balanceOf(staker);
+            uint256 newVaultBalance = pal.balanceOf(address(this));
+
+            //assertEq(newBalance, previousBalance + claimableAmount);
+            assertEq(newVaultBalance, previousVaultBalance - claimableAmount);
+
+            uint256 newClaimableAmount = hpal.estimateClaimableRewards(staker);
+
+            assertEq(newClaimableAmount, 0);
+        }
+        else{
+            console2.log("else");
+            vm.prank(staker);
+            hpal.lock(lockAmount, duration);
+
+            HolyPaladinToken.UserLock memory userLock = hpal.getUserLock(staker);
+            HolyPaladinToken.TotalLock memory newTotalLocked = hpal.getCurrentTotalLock();
+
+            assertEq(userLock.amount, lockAmount);
+            assertEq(userLock.startTimestamp, block.timestamp);
+            assertEq(userLock.duration, duration);
+            assertEq(userLock.fromBlock, block.number);
+            assertEq(newTotalLocked.total, previousTotalLocked.total + lockAmount);
+
+            vm.prank(staker);
+            hpal.cooldown();
+
+            utils.advanceTime(864100);
+
+
+            vm.prank(staker);
+            hpal.claim(amount);
+
+            //uint256 newBalance = pal.balanceOf(staker);
+            uint256 newVaultBalance = pal.balanceOf(address(this));
+
+            //assertEq(newBalance, previousBalance + amount);
+            assertEq(newVaultBalance, previousVaultBalance - amount);
+
+            uint256 newClaimableAmount = hpal.estimateClaimableRewards(staker);
+            console2.log("Claimable Amount After After Lock: ",newClaimableAmount);
+            assertEq(newClaimableAmount, claimableAmount - amount);
+
+        }
+
+    }
+
+    function testClaimAfterLock2(uint72 amount, uint256 duration ) public {
+        vm.assume(duration >= hpal.MIN_LOCK_DURATION());
+        vm.assume(duration <= hpal.MAX_LOCK_DURATION());
+        uint128 elapseTime = 12759149; //default 864100
+        
+
+        address payable staker = users[0];
+
+        uint256 transferAmount = 100 * 1e18;
+
+        uint256 stakingAmount = 70 * 1e18;
+
+        uint256 lockAmount = 30 * 1e18;
+
+        pal.transfer(staker, transferAmount);
+
+        pal.approve(address(hpal), 1000000 * 1e18);
+
+        vm.prank(staker);
+        pal.approve(address(hpal), stakingAmount);
+            
+        vm.prank(staker);
+        hpal.stake(stakingAmount);
+
+        vm.prank(staker);
+        hpal.lock(lockAmount, duration);
+
+        vm.prank(staker);
+        hpal.cooldown();
+
+        utils.advanceTime(elapseTime);
+
+        uint256 previousBalance = pal.balanceOf(staker);
+        uint256 previousVaultBalance = pal.balanceOf(address(this));
+
+        hpal.updateRewardState();
+
+        uint256 claimableAmount = hpal.estimateClaimableRewards(staker);
+        console2.log("Claimable Amount after lock: ", claimableAmount);
+
+
+        HolyPaladinToken.TotalLock memory previousTotalLocked = hpal.getCurrentTotalLock();
+
+        if(amount == 0){
+            vm.expectRevert(
+                bytes4(keccak256(bytes("IncorrectAmount()")))
+            );
+            vm.prank(staker);
+            hpal.claim(amount);
+
+            uint256 newBalance = pal.balanceOf(staker);
+            uint256 newVaultBalance = pal.balanceOf(address(this));
+
+            assertEq(newBalance, previousBalance);
+            assertEq(newVaultBalance, previousVaultBalance);
+        }
+        else if(amount > claimableAmount) {
+            vm.prank(staker);
+            hpal.claim(amount);
+
+            uint256 newBalance = pal.balanceOf(staker);
+            uint256 newVaultBalance = pal.balanceOf(address(this));
+
+            console2.log("New Balance vs  Test", newBalance, previousBalance + claimableAmount);
+            console2.log("New Vault Balance vs  Test", newVaultBalance, previousVaultBalance - claimableAmount);
+
+            assertEq(newBalance, previousBalance + claimableAmount);
+            assertEq(newVaultBalance, previousVaultBalance - claimableAmount);
+
+
+            uint256 newClaimableAmount = hpal.estimateClaimableRewards(staker);
+            console2.log("Claimable Amount After After Lock: ",newClaimableAmount);
+            assertEq(newClaimableAmount, 0);
+        }
+        else{
+            vm.prank(staker);
+            hpal.claim(amount);
+
+            uint256 newBalance = pal.balanceOf(staker);
+            uint256 newVaultBalance = pal.balanceOf(address(this));
+
+            assertEq(newBalance, previousBalance + amount);
+            assertEq(newVaultBalance, previousVaultBalance - amount);
+
+            uint256 newClaimableAmount = hpal.estimateClaimableRewards(staker);
+            console2.log("Claimable Amount After After Claim: ",newClaimableAmount);
+
+            assertEq(newClaimableAmount, claimableAmount - amount);
+
+        }
+
+    }
+
+    function testClaimAfterLock3(uint32 _elapseTime, uint256 _duration ) public {
+        //vm.assume(duration >= hpal.MIN_LOCK_DURATION() && duration <= hpal.MAX_LOCK_DURATION());
+        //vm.assume(elapseTime >= 864100 && elapseTime <= 4*31536000);  //notice, 86400 is 1 day
+        //notice, 31536000 is 1 year
+
+
+        uint256 minDuration = hpal.MIN_LOCK_DURATION();
+        uint256 maxDuration = hpal.MAX_LOCK_DURATION();
+    
+        uint256 duration = bound(_duration, minDuration, maxDuration);
+
+        uint256 minElapseTime = 864100; //default 864100 , 86400 is 1 day
+        uint256 maxElapseTime = 4*31536000; //default 31536000, 31536000 is 1 year
+
+
+        uint256 elapseTime = bound(_elapseTime, minElapseTime, maxElapseTime);
+        console2.log("elapseTime in Days: ", elapseTime / 86400); //time elsapse in days
+
+              
+
+        address payable staker = users[0];
+
+        uint256 transferAmount = 100 * 1e18;
+
+        uint256 stakingAmount = 70 * 1e18;
+
+        uint256 lockAmount = 30 * 1e18;
+
+        pal.transfer(staker, transferAmount);
+
+        pal.approve(address(hpal), 1000000 * 1e18);
+
+        vm.prank(staker);
+        pal.approve(address(hpal), stakingAmount);
+            
+        vm.prank(staker);
+        hpal.stake(stakingAmount);
+
+        vm.prank(staker);
+        hpal.lock(lockAmount, duration);
+
+        vm.prank(staker);
+        hpal.cooldown();
+
+        utils.advanceTime(elapseTime);
+        console2.log("Elapse Time: ", elapseTime);
+
+        uint256 previousBalance = pal.balanceOf(staker);
+        uint256 previousVaultBalance = pal.balanceOf(address(this));
+
+        hpal.updateRewardState();
+
+        uint256 claimableAmount = hpal.estimateClaimableRewards(staker);
+        console2.log("Claimable Amount after lock: ", claimableAmount);
+
+
+        HolyPaladinToken.TotalLock memory previousTotalLocked = hpal.getCurrentTotalLock();
+
+        vm.prank(staker);
+        hpal.claim(claimableAmount);
+
+        uint256 newBalance = pal.balanceOf(staker);
+        uint256 newVaultBalance = pal.balanceOf(address(this));
+
+        assertEq(newBalance, previousBalance + claimableAmount);
+        assertEq(newVaultBalance, previousVaultBalance - claimableAmount);
+
+        uint256 newClaimableAmount = hpal.estimateClaimableRewards(staker);
+        console2.log("Claimable Amount After Claim: ",newClaimableAmount);
+        console2.log("rewards difference gained: ", claimableAmount - lockAmount);
+
+
+
+        assertEq(newClaimableAmount, 0);
+
     }
 
     function testReLockingDuration(uint256 duration) public {

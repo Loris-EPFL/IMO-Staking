@@ -38,7 +38,7 @@ contract StakingHPALTest is DSTest {
         uint256 endDropPerSecond = 0.00001 * 1e18;
         uint256 dropDecreaseDuration = 63072000;
         uint256 baseLockBonusRatio = 1 * 1e18;
-        uint256 minLockBonusRatio = 2 * 1e18;
+        uint256 minLockBonusRatio = 13 * 1e17;
         uint256 maxLockBonusRatio = 6 * 1e18;
         address testADR = address(this);
         
@@ -57,8 +57,9 @@ contract StakingHPALTest is DSTest {
         );
 
         vm.startPrank(0xfc78f8e1Af80A3bF5A1783BB59eD2d1b10f78cA9);
-        pal.balanceOf(0xfc78f8e1Af80A3bF5A1783BB59eD2d1b10f78cA9);
-        pal.transfer(testADR, 5 * 10e22);
+        uint256 bptBalance = pal.balanceOf(0xfc78f8e1Af80A3bF5A1783BB59eD2d1b10f78cA9);
+        console2.log("BPT Balance: ", bptBalance);
+        pal.transfer(testADR, bptBalance);
         vm.stopPrank();
 
         //uint256 bal = pal.balanceOf(0xfc78f8e1Af80A3bF5A1783BB59eD2d1b10f78cA9);
@@ -245,7 +246,10 @@ contract StakingHPALTest is DSTest {
         uint256 previousBalance = pal.balanceOf(staker);
         uint256 previousVaultBalance = pal.balanceOf(address(this));
 
-        uint256 claimableAmount = hpal.claimableRewards(staker);
+        uint256 claimableAmount = hpal.estimateClaimableRewards(staker);
+
+        console2.log("Claimable Amount after lock: ", claimableAmount);
+
 
         if(amount == 0){
             vm.expectRevert(
@@ -270,7 +274,7 @@ contract StakingHPALTest is DSTest {
             assertEq(newBalance, previousBalance + claimableAmount);
             assertEq(newVaultBalance, previousVaultBalance - claimableAmount);
 
-            uint256 newClaimableAmount = hpal.claimableRewards(staker);
+            uint256 newClaimableAmount = hpal.estimateClaimableRewards(staker);
 
             assertEq(newClaimableAmount, 0);
         }
@@ -284,7 +288,7 @@ contract StakingHPALTest is DSTest {
             assertEq(newBalance, previousBalance + amount);
             assertEq(newVaultBalance, previousVaultBalance - amount);
 
-            uint256 newClaimableAmount = hpal.claimableRewards(staker);
+            uint256 newClaimableAmount = hpal.estimateClaimableRewards(staker);
 
             assertEq(newClaimableAmount, claimableAmount - amount);
 

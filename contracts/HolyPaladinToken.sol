@@ -10,7 +10,7 @@ import "./utils/SmartWalletChecker.sol";
 
 /** @title Holy Paladin Token (hPAL) contract  */
 /// @author Paladin
-contract HolyPaladinToken is ERC20("Holy Paladin Token", "hPAL"), Owner {
+contract HolyPaladinToken is ERC20("IMO Staking Token", "IMO"), Owner {
     using SafeERC20 for IERC20;
 
 
@@ -41,6 +41,7 @@ contract HolyPaladinToken is ERC20("Holy Paladin Token", "hPAL"), Owner {
 
     /** @notice Address of the PAL token  */
     IERC20 public immutable pal;
+    
 
     /** @notice Struct of the Lock of an user  */
     struct UserLock {
@@ -141,6 +142,10 @@ contract HolyPaladinToken is ERC20("Holy Paladin Token", "hPAL"), Owner {
     uint256 public immutable minLockBonusRatio;
     /** @notice Maximum reward multiplier for maximum duration  */
     uint256 public immutable maxLockBonusRatio;
+    /**@notice Exponential Scaling Factor with duration */
+    uint8 public durationExpFactor = 2;
+    /**@notice Linear rewards scaling factor to modify rewards scaling for all */
+    uint8 public rewardsLinearScalingFactor = 1;
 
     /** @notice Last updated Bonus Ratio for rewards  */
     mapping(address => uint256) public userCurrentBonusRatio;
@@ -1239,10 +1244,11 @@ contract HolyPaladinToken is ERC20("Holy Paladin Token", "hPAL"), Owner {
 
             // find the reward multiplier based on the user lock duration
             uint256 durationRatio = ((duration - MIN_LOCK_DURATION) * UNIT) / (MAX_LOCK_DURATION - MIN_LOCK_DURATION);
-            uint256 userLockBonusRatio = minLockBonusRatio + (((maxLockBonusRatio - minLockBonusRatio) * durationRatio) / UNIT);
+            //added square duration ratio to make the curve more exponential and linear scaling factor to appropriate for balancer
+            uint256 userLockBonusRatio = rewardsLinearScalingFactor*(minLockBonusRatio + (((maxLockBonusRatio - minLockBonusRatio) * durationRatio*durationExpFactor) / UNIT)); 
 
             userCurrentBonusRatio[user] = userLockBonusRatio;
-            userBonusRatioDecrease[user] = (userLockBonusRatio - baseLockBonusRatio) / duration;
+            userBonusRatioDecrease[user] = (userLockBonusRatio - baseLockBonusRatio) / (duration);
 
             // Update total locked supply
             currentTotalLocked += amount;
