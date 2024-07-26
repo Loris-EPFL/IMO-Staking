@@ -617,6 +617,7 @@ contract LockingHPALTest is Test {
 
 
         uint256 elapseTime = bound(_elapseTime, minElapseTime, maxElapseTime);
+        //uint256 elapseTime = 31536000 /2;
         console2.log("elapseTime in Days: ", elapseTime / 86400); //time elsapse in days
 
               
@@ -625,9 +626,9 @@ contract LockingHPALTest is Test {
 
         uint256 transferAmount = 100 * 1e18;
 
-        uint256 stakingAmount = 70 * 1e18;
+        uint256 stakingAmount = 71 * 1e18;
 
-        uint256 lockAmount = 30 * 1e18;
+        uint256 lockAmount = 70 * 1e18;
 
         pal.transfer(staker, transferAmount);
 
@@ -671,7 +672,7 @@ contract LockingHPALTest is Test {
 
         uint256 newClaimableAmount = hpal.estimateClaimableRewards(staker);
         console2.log("Claimable Amount After Claim: ",newClaimableAmount);
-        console2.log("rewards difference gained: ", claimableAmount - lockAmount);
+        //console2.log("rewards difference gained: ", claimableAmount - lockAmount);
 
 
 
