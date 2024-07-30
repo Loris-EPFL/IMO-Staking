@@ -7,10 +7,11 @@ import "./open-zeppelin/libraries/SafeERC20.sol";
 import "./open-zeppelin/utils/Math.sol";
 import "./utils/Owner.sol";
 import "./utils/SmartWalletChecker.sol";
+import {ABalancer} from "./balancer/zapper/ABalancer.sol";
 
 /** @title Holy Paladin Token (hPAL) contract  */
 /// @author Paladin
-contract HolyPaladinToken is ERC20("IMO Staking Token", "stIMO"), Owner {
+contract HolyPaladinToken is ERC20("IMO Staking Token", "stIMO"), ABalancer {
     using SafeERC20 for IERC20;
 
 

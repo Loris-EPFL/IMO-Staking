@@ -15,7 +15,7 @@ import {Utils} from "./utils/Utils.sol";
 import {PaladinToken} from "../../contracts/PaladinToken.sol";
 import {HolyPaladinToken} from "../../contracts/HolyPaladinToken.sol";
 
-import {IWeightedPool2Tokens} from "../../contracts/interfaces/IWeightedPool2Tokens.sol";
+import {IWeightedPool2Tokens} from "../../contracts/balancer/interfaces/IWeightedPool2Tokens.sol";
 
 
 contract LockingHPALTest is Test {
@@ -34,7 +34,8 @@ contract LockingHPALTest is Test {
         users = utils.createUsers(2);
 
         uint256 palSupply = 50000000 * 1e18;
-        pal = IWeightedPool2Tokens(0xc29562b045D80fD77c69Bec09541F5c16fe20d9d);
+        pal = IWeightedPool2Tokens(0x7120fD744CA7B45517243CE095C568Fd88661c66); //75 IMO / 25 ETH BPT
+        address rewardsToken = 0x0f1D1b7abAeC1Df25f2C4Db751686FC5233f6D3f; //IMO mainnet token
         //pal = new PaladinToken(palSupply, address(this), address(this));
         //pal.setTransfersAllowed(true);
 
@@ -48,7 +49,7 @@ contract LockingHPALTest is Test {
 
         hpal = new HolyPaladinToken(
             address(pal),
-            address(0xC0c293ce456fF0ED870ADd98a0828Dd4d2903DBF),
+            address(rewardsToken),
             address(this),
             address(this),
             address(0),
@@ -62,17 +63,17 @@ contract LockingHPALTest is Test {
 
 
         address testADR = address(this);
-        deal(0xC0c293ce456fF0ED870ADd98a0828Dd4d2903DBF, address(this), 10 * 1e40);
+        deal(address(pal), address(this), 10 * 1e40);
+        deal(rewardsToken, address(this), 10 * 1e40);
 
-        console.log("Balance of Rewards token: ", IWeightedPool2Tokens(0xC0c293ce456fF0ED870ADd98a0828Dd4d2903DBF).balanceOf(address(this)));
+        console.log("Balance of Rewards token: ", IERC20(rewardsToken).balanceOf(address(this)));
+        console.log("Balance of BPT token: ", IWeightedPool2Tokens(pal).balanceOf(address(this)));
 
-        IERC20(0xC0c293ce456fF0ED870ADd98a0828Dd4d2903DBF).approve(address(hpal), type(uint256).max);
+        IWeightedPool2Tokens(pal).approve(address(hpal), type(uint256).max);
+        IERC20(rewardsToken).approve(address(hpal), type(uint256).max);
 
 
-        vm.startPrank(0xfc78f8e1Af80A3bF5A1783BB59eD2d1b10f78cA9);
-        pal.balanceOf(0xfc78f8e1Af80A3bF5A1783BB59eD2d1b10f78cA9);
-        pal.transfer(testADR, 5 * 10e22);
-        vm.stopPrank();
+       
     }
 
     // using uint72 since we gave only 1 000 PAL to the user
@@ -628,7 +629,7 @@ contract LockingHPALTest is Test {
 
         uint256 stakingAmount = 71 * 1e18;
 
-        uint256 lockAmount = 70 * 1e18;
+        uint256 lockAmount = 60 * 1e18;
 
         pal.transfer(staker, transferAmount);
 
@@ -661,8 +662,7 @@ contract LockingHPALTest is Test {
         HolyPaladinToken.TotalLock memory previousTotalLocked = hpal.getCurrentTotalLock();
 
         console.log("address of hpal", address(hpal));
-        console2.log("alloawane for rewards", IERC20(0xC0c293ce456fF0ED870ADd98a0828Dd4d2903DBF).allowance(address(hpal), staker));
-        console2.log("balance of rewards", IERC20(0xC0c293ce456fF0ED870ADd98a0828Dd4d2903DBF).balanceOf(address(hpal)));
+        console2.log("balance of rewards", IERC20(0x0f1D1b7abAeC1Df25f2C4Db751686FC5233f6D3f).balanceOf(address(hpal)));
 
         vm.prank(staker);
         hpal.claim(claimableAmount);

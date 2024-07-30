@@ -5,15 +5,18 @@ import "ds-test/test.sol";
 import "forge-std/Vm.sol";
 import "forge-std/console.sol";
 import "forge-std/console2.sol";
+import "forge-std/Test.sol";
+
 
 import {Utils} from "./utils/Utils.sol";
+import {IERC20} from "../../contracts/open-zeppelin/interfaces/IERC20.sol";
 
 import {PaladinToken} from "../../contracts/PaladinToken.sol";
-import {IWeightedPool2Tokens} from "../../contracts/interfaces/IWeightedPool2Tokens.sol";
+import {IWeightedPool2Tokens} from "../../contracts/balancer/interfaces/IWeightedPool2Tokens.sol";
 import {HolyPaladinToken} from "../../contracts/HolyPaladinToken.sol";
 
-contract StakingHPALTest is DSTest {
-    Vm internal immutable vm = Vm(HEVM_ADDRESS);
+contract StakingHPALTest is Test {
+    //Vm internal immutable vm = Vm(HEVM_ADDRESS);
 
     Utils internal utils;
 
@@ -30,8 +33,8 @@ contract StakingHPALTest is DSTest {
         uint256 palSupply = 50000000 * 1e18;
         //pal = new PaladinToken(palSupply, address(this), address(this));
 
-        pal = IWeightedPool2Tokens(0xc29562b045D80fD77c69Bec09541F5c16fe20d9d);
-        //pal.setTransfersAllowed(true);
+        pal = IWeightedPool2Tokens(0x7120fD744CA7B45517243CE095C568Fd88661c66); //75 IMO / 25 ETH BPT
+        address rewardsToken = 0x0f1D1b7abAeC1Df25f2C4Db751686FC5233f6D3f; //IMO mainnet token
 
         //hPAL constructor parameters
         uint256 startDropPerSecond = 0.0005 * 1e18;
@@ -45,7 +48,7 @@ contract StakingHPALTest is DSTest {
 
         hpal = new HolyPaladinToken(
             address(pal),
-            address(pal),
+            address(rewardsToken),
             address(this),
             address(this),
             address(0),
@@ -57,11 +60,13 @@ contract StakingHPALTest is DSTest {
             maxLockBonusRatio
         );
 
-        vm.startPrank(0xfc78f8e1Af80A3bF5A1783BB59eD2d1b10f78cA9);
-        uint256 bptBalance = pal.balanceOf(0xfc78f8e1Af80A3bF5A1783BB59eD2d1b10f78cA9);
-        console2.log("BPT Balance: ", bptBalance);
-        pal.transfer(testADR, bptBalance);
-        vm.stopPrank();
+        deal(address(pal), address(this), 10 * 1e40);
+        deal(rewardsToken, address(this), 10 * 1e40);
+
+        console.log("Balance of Rewards token: ", IWeightedPool2Tokens(rewardsToken).balanceOf(address(this)));
+        console.log("Balance of BPT token: ", IWeightedPool2Tokens(pal).balanceOf(address(this)));
+
+        IWeightedPool2Tokens(pal).approve(address(hpal), type(uint256).max);
 
         //uint256 bal = pal.balanceOf(0xfc78f8e1Af80A3bF5A1783BB59eD2d1b10f78cA9);
     }
