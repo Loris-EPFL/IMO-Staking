@@ -680,6 +680,26 @@ contract LockingHPALTest is Test {
 
     }
 
+    function testZapEthAndLock(uint256 _amount, uint256 _duration) public {
+
+        uint256 minAmount = 10;
+        uint256 maxAmount = 100 ether;
+
+
+        uint256 amount = bound(_amount, minAmount, maxAmount);
+        //uint256 elapseTime = 31536000 /2;
+        uint256 minDuration = hpal.MIN_LOCK_DURATION();
+        uint256 maxDuration = hpal.MAX_LOCK_DURATION();
+    
+        uint256 duration = bound(_duration, minDuration, maxDuration);
+        address payable staker = users[0];
+
+        deal(staker, 10e6);
+        vm.prank(staker);
+        hpal.zapEtherAndStakeIMO{value: 10e6}(staker, duration);
+
+    }
+
     function testReLockingDuration(uint256 duration) public {
         address payable locker = users[0];
 

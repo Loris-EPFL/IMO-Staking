@@ -8,6 +8,7 @@ import "./open-zeppelin/utils/Math.sol";
 import "./utils/Owner.sol";
 import "./utils/SmartWalletChecker.sol";
 import {ABalancer} from "./balancer/zapper/ABalancer.sol";
+import {IWETH} from "./open-zeppelin/interfaces/IWETH.sol";
 
 /** @title Holy Paladin Token (hPAL) contract  */
 /// @author Paladin
@@ -696,6 +697,66 @@ contract HolyPaladinToken is ERC20("IMO Staking Token", "stIMO"), ABalancer {
         return userRewardStates[user].lastUpdate;
     }
 
+   
+
+    /// @notice Zap Ether into a single token and then mint and stake sIMO tokens.
+    /// @param receiver The address to receive staked WAR tokens.
+    function zapEtherAndStakeIMO(address receiver, uint256 duration)
+        external
+        payable
+        nonReentrant
+        returns (uint256 stakedAmount)
+    {
+        if (receiver == address(0)) revert AddressZero();
+        if (msg.value == 0) revert NullAmount();
+        if(emergency) revert EmergencyBlock();
+
+
+        uint256 bptBalanceBefore = pal.balanceOf(address(this));
+
+        uint256 EthToZap = (msg.value * 80) /100;
+        if(EthToZap == 0) revert IncorrectAmount();
+        uint256 EthAmount = msg.value - EthToZap;
+
+        //zap eth to IMO
+        uint256 ImoAmount = ethToImo(EthToZap, 0, msg.sender, address(this)); 
+        if(ImoAmount == 0) revert IncorrectAmount();
+        // Zap weth to vlCvx or vlAura
+
+        uint256 ImoEthBpt = queryJoinImoPool(EthAmount, ImoAmount, msg.sender, address(this));
+
+        //join imo pool (Both ETH and IMO are already in the contract)
+        joinImoPool(EthAmount, ImoAmount, address(this), address(this));
+
+
+        //TODO implement queryJoin to know BPT tokens balance in advance
+        
+        if(ImoEthBpt == 0) revert IncorrectAmount();
+
+        // Stake the received BPT tokens
+
+        uint256 bptBalanceAfter = pal.balanceOf(address(this));
+
+        stakedAmount = bptBalanceAfter - bptBalanceBefore;
+
+        _mint(receiver, stakedAmount); //We mint hPAL 1:1 with PAL
+
+        emit Stake(receiver, stakedAmount);
+
+
+        //Check if caller is allowed
+        _assertNotContract(msg.sender);
+        // Update user rewards before any change on their balance (staked and locked)
+        _updateUserRewards(msg.sender);
+        if(delegates[msg.sender] == address(0)){
+            // If the user does not deelegate currently, automatically self-delegate
+            _delegate(msg.sender, msg.sender);
+        }
+        _lock(receiver, stakedAmount, duration, LockAction.LOCK);
+
+        
+    }
+
     /**
      * @notice Current number of vote checkpoints for the user
      * @param account address of the user
@@ -797,7 +858,7 @@ contract HolyPaladinToken is ERC20("IMO Staking Token", "stIMO"), ABalancer {
     // Check if caller is not a smart contract
     // If it is a contract, check if the contract is allowed by SmartWalletChecker
     // Revert if not allowed
-    function _assertNotContract(address addr) internal {
+    function _assertNotContract(address addr) internal view{
         if(addr != tx.origin){
             address checker = smartWalletChecker;
             if(checker != address(0)){

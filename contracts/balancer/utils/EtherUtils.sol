@@ -12,8 +12,8 @@ import {Ownable2Step} from "./Ownable2Step.sol";
 abstract contract EtherUtils is Ownable2Step {
     using SafeTransferLib for ERC20;
 
-    // The WETH token address on Ethereum mainnet.
-    address internal constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    // The WETH token address on Base mainnet.
+    address internal constant WETH = 0x4200000000000000000000000000000000000006;
 
     /// @dev Internal function to maximize the WETH allowance for a target address.
     /// @param target The address for which the WETH allowance will be set to max.
