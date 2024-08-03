@@ -694,9 +694,10 @@ contract LockingHPALTest is Test {
         uint256 duration = bound(_duration, minDuration, maxDuration);
         address payable staker = users[0];
 
-        deal(staker, 10e6);
+        deal(staker, 10e18);
+       
         vm.prank(staker);
-        hpal.zapEtherAndStakeIMO{value: 10e6}(staker, duration);
+        hpal.zapEtherAndStakeIMO{value: 1e6}(staker, duration);
 
     }
 

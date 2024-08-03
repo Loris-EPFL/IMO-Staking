@@ -51,8 +51,8 @@ interface IVault {
     }
 
     struct JoinPoolRequest {
-        address[2] assets;
-        uint256[2] maxAmountsIn;
+        address[] assets;
+        uint256[] maxAmountsIn;
         bytes userData;
         bool fromInternalBalance;
     }

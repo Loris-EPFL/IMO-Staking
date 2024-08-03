@@ -184,6 +184,7 @@ contract HolyPaladinToken is ERC20("IMO Staking Token", "stIMO"), ABalancer {
     /** @notice Error raised if contract is turned in emergency mode */
     error EmergencyBlock();
     error ContractNotAllowed(); 
+    error NotApproved();
 
     // Event
 
@@ -207,6 +208,10 @@ contract HolyPaladinToken is ERC20("IMO Staking Token", "stIMO"), ABalancer {
     event DelegateVotesChanged(address indexed delegate, uint256 previousBalance, uint256 newBalance);
     /** @notice Emitted when un user withdraw through the emergency method */
     event EmergencyUnstake(address indexed user, uint256 amount);
+
+    //event Zapped(address indexed user, uint256 amount, uint256 indexed startTimestamp, uint256 indexed duration, uint256 totalLocked);
+
+    event Zap(uint256 amoun);
 
     constructor(
         address _palToken,
@@ -704,7 +709,6 @@ contract HolyPaladinToken is ERC20("IMO Staking Token", "stIMO"), ABalancer {
     function zapEtherAndStakeIMO(address receiver, uint256 duration)
         external
         payable
-        nonReentrant
         returns (uint256 stakedAmount)
     {
         if (receiver == address(0)) revert AddressZero();
@@ -715,30 +719,33 @@ contract HolyPaladinToken is ERC20("IMO Staking Token", "stIMO"), ABalancer {
         uint256 bptBalanceBefore = pal.balanceOf(address(this));
 
         uint256 EthToZap = (msg.value * 80) /100;
-        if(EthToZap == 0) revert IncorrectAmount();
+
+        IWETH(0x4200000000000000000000000000000000000006).deposit{value: msg.value}();
+        bool isVaultApproved = IWETH(0x4200000000000000000000000000000000000006).approve(vault, msg.value);
+        if(!isVaultApproved) revert NotApproved();
         uint256 EthAmount = msg.value - EthToZap;
 
+        if(EthToZap == 0 || EthAmount == 0) revert IncorrectAmount();
+
         //zap eth to IMO
-        uint256 ImoAmount = ethToImo(EthToZap, 0, msg.sender, address(this)); 
+        uint256 ImoAmount = ethToImo(EthToZap, 0, address(this), address(this)); 
         if(ImoAmount == 0) revert IncorrectAmount();
-        // Zap weth to vlCvx or vlAura
 
-        uint256 ImoEthBpt = queryJoinImoPool(EthAmount, ImoAmount, msg.sender, address(this));
+        //uint256 ImoEthBpt = queryJoinImoPool(EthAmount, ImoAmount, address(this), address(this));
 
-        //join imo pool (Both ETH and IMO are already in the contract)
+        //join imo pool (IMO is given from Vault internal Balance, WETH is given from here)
         joinImoPool(EthAmount, ImoAmount, address(this), address(this));
 
 
         //TODO implement queryJoin to know BPT tokens balance in advance
         
-        if(ImoEthBpt == 0) revert IncorrectAmount();
+        //if(ImoEthBpt == 0) revert IncorrectAmount();
 
         // Stake the received BPT tokens
 
-        uint256 bptBalanceAfter = pal.balanceOf(address(this));
-
-        stakedAmount = bptBalanceAfter - bptBalanceBefore;
-
+        stakedAmount = pal.balanceOf(address(this)) - bptBalanceBefore; //get new BPT balance of contract
+        if(stakedAmount == 0) revert IncorrectAmount();
+        
         _mint(receiver, stakedAmount); //We mint hPAL 1:1 with PAL
 
         emit Stake(receiver, stakedAmount);
@@ -753,8 +760,6 @@ contract HolyPaladinToken is ERC20("IMO Staking Token", "stIMO"), ABalancer {
             _delegate(msg.sender, msg.sender);
         }
         _lock(receiver, stakedAmount, duration, LockAction.LOCK);
-
-        
     }
 
     /**

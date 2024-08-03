@@ -9,6 +9,7 @@ import {EtherUtils} from "../utils/EtherUtils.sol";
 import {IVault} from "../interfaces/IVault.sol";
 import {IbalancerQueries} from "../interfaces/IbalancerQueries.sol";
 import  "../../open-zeppelin/utils/ReentrancyGuard.sol";   
+import "../utils/WeightedPoolUserData.sol";
 
 abstract contract ABalancer is EtherUtils, ReentrancyGuard {
     using SafeTransferLib for ERC20;
@@ -22,6 +23,7 @@ abstract contract ABalancer is EtherUtils, ReentrancyGuard {
     bytes32 public poolId = 0x7120fd744ca7b45517243ce095c568fd88661c66000200000000000000000179;
     //Base mainnet Address of Balancer Queries 
     address public balancerQueries = 0x300Ab2038EAc391f26D9F895dc61F8F66a548833;
+
 
     /// @notice Emitted when the Balancer vault address is updated.
     /// @param newVault The address of the new Balancer vault.
@@ -79,7 +81,7 @@ abstract contract ABalancer is EtherUtils, ReentrancyGuard {
         IVault.SingleSwap memory params = IVault.SingleSwap({
             poolId: poolId,
             kind: 0, // exact input, output given
-            assetIn: address(0), //eth native adress
+            assetIn: WETH, //eth native adress
             assetOut: IMO,
             amount: amount, // Amount to swap
             userData: ""
@@ -87,9 +89,9 @@ abstract contract ABalancer is EtherUtils, ReentrancyGuard {
 
         IVault.FundManagement memory funds = IVault.FundManagement({
             sender: sender, // Funds are taken from this contract
-            recipient: receiver, // Swapped tokens are sent back to this contract
+            recipient: payable(receiver), // Swapped tokens are sent back to this contract
             fromInternalBalance: false, // Don't take funds from contract LPs (since there's none)
-            toInternalBalance: false // Don't LP with swapped funds
+            toInternalBalance: true // Don't LP with swapped funds
         });
 
         amountOutCalculated = IVault(vault).swap(params, funds, imoOutMin, block.timestamp);
@@ -98,7 +100,7 @@ abstract contract ABalancer is EtherUtils, ReentrancyGuard {
     function queryJoinImoPool(uint256 EthAmount, uint256 ImoAmount, address sender, address receiver) public nonReentrant returns (uint256 amountOutCalculated) {
         //ETH address for the pool is 0 (given pool is denomiated in ETH)
         IbalancerQueries.JoinPoolRequest memory request = IbalancerQueries.JoinPoolRequest({
-            assets: [IMO, address(0)],
+            assets: [IMO, WETH],
             maxAmountsIn: [ImoAmount, EthAmount],
             userData: "",
             fromInternalBalance: false
@@ -114,22 +116,30 @@ abstract contract ABalancer is EtherUtils, ReentrancyGuard {
         (amountOutCalculated,) = IbalancerQueries(balancerQueries).queryJoin(poolId, sender, receiver, request);
     }
 
-    function joinImoPool(uint256 EthAmount, uint256 ImoAmount, address sender, address receiver) public payable nonReentrant {
-        //ETH address for the pool is 0 (given pool is denomiated in ETH)
+    function joinImoPool(uint256 EthAmount, uint256 ImoAmount, address sender, address receiver) public nonReentrant {
+        address[] memory assets = new address[](2);
+        assets[0] = IMO;  // 0x0f1D1b7abAeC1Df25f2C4Db751686FC5233f6D3f
+        assets[1] = WETH; // 0x4200000000000000000000000000000000000006
+
+        uint256[] memory maxAmountsIn = new uint256[](2);
+        maxAmountsIn[0] = ImoAmount;
+        maxAmountsIn[1] = EthAmount;
+
+        bytes memory userData = abi.encode(
+            uint256(WeightedPoolUserData.JoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT), // = 1
+            maxAmountsIn,
+            uint256(1)
+        );
+
         IVault.JoinPoolRequest memory request = IVault.JoinPoolRequest({
-            assets: [IMO, address(0)],
-            maxAmountsIn: [ImoAmount, EthAmount],
-            userData: "",
-            fromInternalBalance: false
+            assets: assets,
+            maxAmountsIn: maxAmountsIn,
+            userData: userData,
+            fromInternalBalance: true
         });
 
-        IVault.FundManagement memory funds = IVault.FundManagement({
-            sender: sender,
-            recipient: receiver,
-            fromInternalBalance: false,
-            toInternalBalance: false
-        });
-
+    
         IVault(vault).joinPool(poolId, sender, receiver, request);
+
     }  
 }
